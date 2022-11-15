@@ -2,8 +2,10 @@ FROM nvidia/cuda:11.3.1-base-ubuntu20.04
 
 SHELL ["/bin/bash", "-c"]
 
+ARG DEBIAN_FRONTEND=noninteractive
+
 RUN apt update \
- && apt install --no-install-recommends -y curl wget git \
+ && apt install --no-install-recommends -y libsm6 ffmpeg libxext6 libxrender-dev curl wget git \
  && apt-get clean
 
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-py38_4.12.0-Linux-x86_64.sh -O ~/miniconda.sh \
@@ -16,7 +18,7 @@ RUN eval "$($HOME/miniconda/bin/conda shell.bash hook)" \
  && cd /root/stable-diffusion \
  && conda env create -f environment.yaml \
  && conda activate ldm \
- && pip install --upgrade gradio
+ && pip install --upgrade gdown gradio opencv-python
 
 VOLUME /root/.cache
 VOLUME /data
