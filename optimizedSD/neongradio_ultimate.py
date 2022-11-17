@@ -1035,6 +1035,12 @@ class TqdmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
+def extract_json(data, key, default):
+    if key in data:
+        return data[key]
+    else:
+        return default
+
 # endpoint for txt2img
 # sample input 
 # {
@@ -1050,27 +1056,65 @@ class TqdmLoggingHandler(logging.Handler):
 def txt2img_endpoint():
     data = request.get_json(force=True)
     generate_txt2img(
-        prompt=data['prompt'] if 'prompt' in data else 'apple',
-        negative_prompt=data['negative_prompt'] if 'negative_prompt' in data else '',
-        ddim_steps=data['sampling_steps'] if 'sampling_steps' in data else 50,
-        n_iter=data['number_images'] if 'number_images' in data else 1,
-        batch_size=data['batch_size'] if 'batch_size' in data else 1,
-        Width=data['width'] if 'width' in data else 512,
-        Height=data['height'] if 'height' in data else 512,
-        scale=data['guidenance_scale'] if 'guidenance_scale' in data else 7.5,
-        ddim_eta=data['ddim_sampling_eta'] if 'ddim_sampling_eta' in data else 0.1,
-        unet_bs=data['unet_batch_size'] if 'unet_batch_size' in data else 1,
-        device=data['device'] if 'device' in data else "cuda",
-        seed=data['seed'] if 'seed' in data else 0,
-        outdir=data['outdir'] if 'outdir' in data else "/output/",
-        img_format=data['img_format'] if 'img_format' in data else "png",
-        turbo=data['turbo'] if 'turbo' in data else True,
-        full_precision=data['full_precision'] if 'full_precision' in data else False,
-        sampler=data['sampler'] if 'sampler' in data else "plms",
-        speed_mp=data['speed_mp'] if 'speed_mp' in data else False
+        prompt=extract_json(data, 'prompt', 'apple'),
+        negative_prompt=extract_json(data, 'negative_prompt', ''),
+        ddim_steps=extract_json(data, 'sampling_steps', 50),
+        n_iter=extract_json(data, 'number_images', 1),
+        batch_size=extract_json(data, 'batch_size', 1),
+        Width=extract_json(data, 'width', 512),
+        Height=extract_json(data, 'height', 512),
+        scale=extract_json(data, 'guidenance_scale', 7.5),
+        ddim_eta=extract_json(data, 'ddim_sampling_eta', 0.1),
+        unet_bs=extract_json(data, 'unet_batch_size', 1),
+        device=extract_json(data, 'device', 'cuda'),
+        seed=extract_json(data, 'seed', 0),
+        outdir=extract_json(data, 'output_dir', '/output/'),
+        img_format=extract_json(data, 'img_format', 'png'),
+        turbo=extract_json(data, 'turbo', True),
+        full_precision=extract_json(data, 'full_precision', False),
+        sampler=extract_json(data, 'sampler', 'plms'),
+        speed_mp=extract_json(data, 'speed_mp', False)
     )
     return "Done"
 
+# endpoint for img2img
+# {
+#     "image_path": "apple.png",
+#     "prompt": "yellow cyberpunk apple",
+#     "negative_prompt": "",
+#     "strength": 0.6,
+#     "width": 512,
+#     "height": 512,
+#     "guidenance_scale": 7.5,
+#     "seed": 0
+# }
+
+@app.route("/img2img", methods=["POST"])
+def img2img_endpoint():
+    data = request.get_json(force=True)
+    generate_img2img(
+        image=extract_json(data, 'input_dir', '/input/') + extract_json(data, 'image_path', 'img.png'),
+        prompt=extract_json(data, 'prompt', 'apple'),
+        negative_prompt=extract_json(data, 'negative_prompt', ''),
+        strength=extract_json(data, 'strength', 0.5),
+        ddim_steps=extract_json(data, 'sampling_steps', 50),
+        n_iter=extract_json(data, 'number_images', 1),
+        batch_size=extract_json(data, 'batch_size', 1),
+        Width=extract_json(data, 'width', 512),
+        Height=extract_json(data, 'height', 512),
+        scale=extract_json(data, 'guidenance_scale', 7.5),
+        ddim_eta=extract_json(data, 'ddim_sampling_eta', 0.1),
+        unet_bs=extract_json(data, 'unet_batch_size', 1),
+        device=extract_json(data, 'device', 'cuda'),
+        seed=extract_json(data, 'seed', 0),
+        outdir=extract_json(data, 'outdir', '/output/'),
+        img_format=extract_json(data, 'img_format', 'png'),
+        turbo=extract_json(data, 'turbo', True),
+        full_precision=extract_json(data, 'full_precision', False),
+        sampler=extract_json(data, 'sampler', 'ddim'),
+        speed_mp=extract_json(data, 'speed_mp', False)
+    )
+    return "Done"
 
 if __name__ == '__main__':
     global lines, use_mask
@@ -1145,7 +1189,7 @@ if __name__ == '__main__':
     del sd
 
     #start api
-    app.run()
+    app.run(host='0.0.0.0')
 
     # demo = gr.Blocks()
 
