@@ -52,12 +52,16 @@ from basicsr.utils.realesrgan_utils import RealESRGANer
 
 from basicsr.utils.registry import ARCH_REGISTRY
 from torchvision.transforms.functional import normalize
+from flask import Flask
+import subprocess
 
 transformers_logging.set_verbosity_error()
 
 mimetypes.init()
 mimetypes.add_type("application/javascript", ".js")
 
+
+app = Flask(__name__)
 
 def chunk(it, size):
     it = iter(it)
@@ -1029,6 +1033,30 @@ class TqdmLoggingHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
+@app.route("/")
+def hello_world():
+    generate_txt2img(
+        prompt="apple",
+        negative_prompt="",
+        ddim_steps=50,
+        n_iter=1,
+        batch_size=1,
+        Width=512,
+        Height=512,
+        scale=7.5,
+        ddim_eta=0.1,
+        unet_bs=1,
+        device="cuda",
+        seed=0,
+        outdir="/output/",
+        img_format="png",
+        turbo=True,
+        full_precision=False,
+        sampler="plms",
+        speed_mp=False
+    )
+    return "Done"
+
 
 if __name__ == '__main__':
     global lines, use_mask
@@ -1102,230 +1130,257 @@ if __name__ == '__main__':
     modelFS.eval()
     del sd
 
-    demo = gr.Blocks()
+    #start api
+    app.run()
 
-    with demo:
-        with gr.Tab("txt2img"):
-            with gr.Column():
-                gr.Markdown("# Generate images from text (neonsecret's adjustments)")
-                gr.Markdown("### Press 'generation status' button to get the model output logs")
-                with gr.Row():
-                    with gr.Column():
-                        out_image = gr.Image(label="Output Image")
-                        gen_res = gr.Text(label="Generation results")
-                        outs2 = [gr.Text(label="Logs")]
-                        outs3 = gr.Text(label="nvidia-smi")
-                        b1 = gr.Button("Generate!")
-                        b4 = gr.Button("Face correction")
-                        b5 = gr.Button("Upscale 2x")
-                        b2 = gr.Button("generation status")
-                        b3 = gr.Button("nvidia-smi")
-                    with gr.Column():
-                        with gr.Box():
-                            b4.click(face_restore, inputs=[out_image], outputs=[out_image, gen_res])
-                            b5.click(upscale2x, inputs=[out_image], outputs=[out_image, gen_res])
-                            b1.click(generate_txt2img, inputs=[
-                                gr.Text(label="Your Prompt"),
-                                gr.Text(label="Your Negative Prompt"),
-                                gr.Slider(1, 200, value=50, label="Sampling Steps"),
-                                gr.Slider(1, 100, step=1, label="Number of images"),
-                                gr.Slider(1, 100, step=1, label="Batch size"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Width"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Height"),
-                                gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
-                                gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
-                                gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
-                                gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
-                                gr.Text(label="Seed"),
-                                gr.Text(value=args.outputs_path, label="Outputs path"),
-                                gr.Radio(["png", "jpg"], value='png', label="Image format"),
-                                gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
-                                gr.Checkbox(label="Full precision mode (practically does nothing)"),
-                                gr.Radio(
-                                    ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
-                                    value="plms", label="Sampler"),
-                                gr.Checkbox(value=False,
-                                            label="Lightning Attention (only on linux + xformers installed)"),
-                            ], outputs=[out_image, gen_res])
-                            b2.click(get_logs, inputs=[], outputs=outs2)
-                            b3.click(get_nvidia_smi, inputs=[], outputs=[outs3])
-        with gr.Tab("img2img"):
-            with gr.Column():
-                gr.Markdown("# Generate images from images (neonsecret's adjustments)")
-                gr.Markdown("### Press 'generation status' button to get the model output logs")
-                with gr.Row():
-                    with gr.Column():
-                        out_image2 = gr.Image(label="Output Image")
-                        gen_res2 = gr.Text(label="Generation results")
-                        outs2 = [gr.Text(label="Logs")]
-                        outs3 = [gr.Text(label="nvidia-smi")]
-                        b1 = gr.Button("Generate!")
-                        b4 = gr.Button("Face correction")
-                        b5 = gr.Button("Upscale 2x")
-                        b2 = gr.Button("generation status")
-                        b3 = gr.Button("nvidia-smi")
-                    with gr.Column():
-                        with gr.Box():
-                            b4.click(face_restore, inputs=[out_image2], outputs=[out_image2, gen_res2])
-                            b5.click(upscale2x, inputs=[out_image2], outputs=[out_image2, gen_res2])
-                            b1.click(generate_img2img, inputs=[
-                                gr.Image(tool="editor", type="pil", label="Initial image"),
-                                gr.Text(label="Your Prompt"),
-                                gr.Text(label="Your Negative Prompt"),
-                                gr.Slider(0, 1, value=0.75, label="Generated image strength"),
-                                gr.Slider(1, 200, value=50, label="Sampling Steps"),
-                                gr.Slider(1, 100, step=1, label="Number of images"),
-                                gr.Slider(1, 100, step=1, label="Batch size"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Width"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Height"),
-                                gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
-                                gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
-                                gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
-                                gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
-                                gr.Text(label="Seed"),
-                                gr.Text(value=args.outputs_path, label="Outputs path"),
-                                gr.Radio(["png", "jpg"], value='png', label="Image format"),
-                                gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
-                                gr.Checkbox(label="Full precision mode (practically does nothing)"),
-                                gr.Radio(
-                                    ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
-                                    value="ddim", label="Sampler"),
-                                gr.Checkbox(value=False,
-                                            label="Lightning Attention (only on linux + xformers installed)"),
-                            ], outputs=[out_image2, gen_res2])
-                            b2.click(get_logs, inputs=[], outputs=outs2)
-                            b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
-        with gr.Tab("img2img inpaint"):
-            with gr.Column():
-                gr.Markdown("# Generate images from images (with a mask) (neonsecret's adjustments)")
-                gr.Markdown("### Press 'generation status' button to get the model output logs")
-                with gr.Row():
-                    with gr.Column():
-                        out_image3 = gr.Image(label="Output Image")
-                        gen_res3 = gr.Text(label="Generation results")
-                        outs2 = [gr.Text(label="Logs")]
-                        outs3 = [gr.Text(label="nvidia-smi")]
-                        b1 = gr.Button("Generate!")
-                        b4 = gr.Button("Face correction")
-                        b5 = gr.Button("Upscale 2x")
-                        b2 = gr.Button("generation status")
-                        b3 = gr.Button("nvidia-smi")
-                    with gr.Column():
-                        with gr.Box():
-                            b4.click(face_restore, inputs=[out_image3], outputs=[out_image3, gen_res3])
-                            b5.click(upscale2x, inputs=[out_image3], outputs=[out_image3, gen_res3])
-                            b1.click(generate_img2img, inputs=[
-                                gr.Image(tool="sketch", type="pil", label="Initial image with a mask"),
-                                gr.Text(label="Your Prompt"),
-                                gr.Text(label="Your Negative Prompt"),
-                                gr.Slider(0, 1, value=0.75, label="Generated image strength"),
-                                gr.Slider(1, 200, value=50, label="Sampling Steps"),
-                                gr.Slider(1, 100, step=1, label="Number of images"),
-                                gr.Slider(1, 100, step=1, label="Batch size"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Width"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Height"),
-                                gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
-                                gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
-                                gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
-                                gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
-                                gr.Text(label="Seed"),
-                                gr.Text(value=args.outputs_path, label="Outputs path"),
-                                gr.Radio(["png", "jpg"], value='png', label="Image format"),
-                                gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
-                                gr.Checkbox(label="Full precision mode (practically does nothing)"),
-                                gr.Radio(
-                                    ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
-                                    value="ddim", label="Sampler"),
-                                gr.Checkbox(value=False,
-                                            label="Lightning Attention (only on linux + xformers installed)"),
-                            ], outputs=[out_image3, gen_res3])
-                            b2.click(get_logs, inputs=[], outputs=outs2)
-                            b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
-        with gr.Tab("img2img interpolate"):
-            with gr.Column():
-                gr.Markdown("# Generate a video interpolation from images")
-                gr.Markdown("### Press 'generation status' button to get the model output logs")
-                with gr.Row():
-                    with gr.Column():
-                        out_video = gr.Video()
-                        gen_res4 = gr.Text(label="Generation results")
-                        outs2 = [gr.Text(label="Logs")]
-                        outs3 = [gr.Text(label="nvidia-smi")]
-                        b1 = gr.Button("Generate!")
-                        b2 = gr.Button("generation status")
-                        b3 = gr.Button("nvidia-smi")
-                    with gr.Column():
-                        with gr.Box():
-                            b1.click(generate_img2img_interp, inputs=[
-                                gr.Image(tool="editor", type="pil", label="Initial image"),
-                                gr.Text(label="Your Prompt"),
-                                gr.Slider(0, 1, value=0.75, label="Generated image strength"),
-                                gr.Slider(1, 200, value=50, label="Sampling Steps"),
-                                gr.Slider(1, 100, step=1, label="Number of images"),
-                                gr.Slider(1, 100, step=1, label="Batch size"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Width"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Height"),
-                                gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
-                                gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
-                                gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
-                                gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
-                                gr.Text(label="Seed"),
-                                gr.Text(value=args.outputs_path, label="Outputs path"),
-                                gr.Radio(["png", "jpg"], value='png', label="Image format"),
-                                gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
-                                gr.Checkbox(label="Full precision mode (practically does nothing)"),
-                                gr.Radio(
-                                    ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
-                                    value="ddim", label="Sampler"),
-                                gr.Checkbox(value=False,
-                                            label="Lightning Attention (only on linux + xformers installed)"),
-                                gr.Slider(1, 120, value=60, step=1, label="How smooth/slow the video will be"),
-                            ], outputs=[out_video, gen_res4])
-                            b2.click(get_logs, inputs=[], outputs=outs2)
-                            b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
-        with gr.Tab("txt2img 2x-3x upscale"):
-            with gr.Column():
-                gr.Markdown("# Generate images from text using SD upscaling")
-                gr.Markdown("### Generate images in 2(3) steps - Wx -> 2Wx2H (-> 3Wx3H)")
-                gr.Markdown("### Press 'generation status' button to get the model output logs")
-                with gr.Row():
-                    with gr.Column():
-                        out_image = gr.Image(label="Output Image")
-                        gen_res = gr.Text(label="Generation results")
-                        outs2 = [gr.Text(label="Logs")]
-                        outs3 = gr.Text(label="nvidia-smi")
-                        b1 = gr.Button("Generate!")
-                        b4 = gr.Button("Face correction")
-                        b5 = gr.Button("Upscale 2x")
-                        b2 = gr.Button("generation status")
-                        b3 = gr.Button("nvidia-smi")
-                    with gr.Column():
-                        with gr.Box():
-                            b4.click(face_restore, inputs=[out_image], outputs=[out_image, gen_res])
-                            b5.click(upscale2x, inputs=[out_image], outputs=[out_image, gen_res])
-                            b1.click(generate_double_triple, inputs=[
-                                gr.Text(label="Your Prompt"),
-                                gr.Slider(1, 200, value=50, label="Sampling Steps"),
-                                gr.Slider(0, 1, value=0.35, label="Upscaled image changes strength"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Width"),
-                                gr.Slider(64, 4096, value=512, step=64, label="Height"),
-                                gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
-                                gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
-                                gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
-                                gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
-                                gr.Text(label="Seed"),
-                                gr.Text(value=args.outputs_path, label="Outputs path"),
-                                gr.Radio(["png", "jpg"], value='png', label="Image format"),
-                                gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
-                                gr.Checkbox(label="Full precision mode (practically does nothing)"),
-                                gr.Radio(
-                                    ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
-                                    value="plms", label="Sampler"),
-                                gr.Checkbox(value=False,
-                                            label="Lightning Attention (only on linux + xformers installed)"),
-                                gr.Slider(2, 3, value=2, step=1,
-                                          label="Neural scaling factor, 3 will take much longer"),
-                            ], outputs=[out_image, gen_res])
-                            b2.click(get_logs, inputs=[], outputs=outs2)
-                            b3.click(get_nvidia_smi, inputs=[], outputs=[outs3])
-    demo.launch(share=True)
+
+
+    
+    # demo = gr.Blocks()
+
+    # with demo:
+    #     with gr.Tab("txt2img"):
+    #         with gr.Column():
+    #             gr.Markdown("# Generate images from text (neonsecret's adjustments)")
+    #             gr.Markdown("### Press 'generation status' button to get the model output logs")
+    #             with gr.Row():
+    #                 with gr.Column():
+    #                     out_image = gr.Image(label="Output Image")
+    #                     gen_res = gr.Text(label="Generation results")
+    #                     outs2 = [gr.Text(label="Logs")]
+    #                     outs3 = gr.Text(label="nvidia-smi")
+    #                     b1 = gr.Button("Generate!")
+    #                     b4 = gr.Button("Face correction")
+    #                     b5 = gr.Button("Upscale 2x")
+    #                     b2 = gr.Button("generation status")
+    #                     b3 = gr.Button("nvidia-smi")
+    #                 with gr.Column():
+    #                     with gr.Box():
+
+    # generate_txt2img(
+    #     prompt="apple",
+    #     negative_prompt="",
+    #     ddim_steps=50,
+    #     n_iter=1,
+    #     batch_size=1,
+    #     Width=512,
+    #     Height=512,
+    #     scale=7.5,
+    #     ddim_eta=0.1,
+    #     unet_bs=1,
+    #     device="cuda",
+    #     seed=0,
+    #     outdir="/output/",
+    #     img_format="png",
+    #     turbo=True,
+    #     full_precision=False,
+    #     sampler="plms",
+    #     speed_mp=False
+    # )
+    #                         b4.click(face_restore, inputs=[out_image], outputs=[out_image, gen_res])
+    #                         b5.click(upscale2x, inputs=[out_image], outputs=[out_image, gen_res])
+    #                         b1.click(generate_txt2img, inputs=[
+    #                             gr.Text(label="Your Prompt"),
+    #                             gr.Text(label="Your Negative Prompt"),
+    #                             gr.Slider(1, 200, value=50, label="Sampling Steps"),
+    #                             gr.Slider(1, 100, step=1, label="Number of images"),
+    #                             gr.Slider(1, 100, step=1, label="Batch size"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Width"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Height"),
+    #                             gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
+    #                             gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
+    #                             gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
+    #                             gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
+    #                             gr.Text(label="Seed"),
+    #                             gr.Text(value=args.outputs_path, label="Outputs path"),
+    #                             gr.Radio(["png", "jpg"], value='png', label="Image format"),
+    #                             gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
+    #                             gr.Checkbox(label="Full precision mode (practically does nothing)"),
+    #                             gr.Radio(
+    #                                 ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
+    #                                 value="plms", label="Sampler"),
+    #                             gr.Checkbox(value=False,
+    #                                         label="Lightning Attention (only on linux + xformers installed)"),
+    #                         ], outputs=[out_image, gen_res])
+    #                         b2.click(get_logs, inputs=[], outputs=outs2)
+    #                         b3.click(get_nvidia_smi, inputs=[], outputs=[outs3])
+    #     with gr.Tab("img2img"):
+    #         with gr.Column():
+    #             gr.Markdown("# Generate images from images (neonsecret's adjustments)")
+    #             gr.Markdown("### Press 'generation status' button to get the model output logs")
+    #             with gr.Row():
+    #                 with gr.Column():
+    #                     out_image2 = gr.Image(label="Output Image")
+    #                     gen_res2 = gr.Text(label="Generation results")
+    #                     outs2 = [gr.Text(label="Logs")]
+    #                     outs3 = [gr.Text(label="nvidia-smi")]
+    #                     b1 = gr.Button("Generate!")
+    #                     b4 = gr.Button("Face correction")
+    #                     b5 = gr.Button("Upscale 2x")
+    #                     b2 = gr.Button("generation status")
+    #                     b3 = gr.Button("nvidia-smi")
+    #                 with gr.Column():
+    #                     with gr.Box():
+    #                         b4.click(face_restore, inputs=[out_image2], outputs=[out_image2, gen_res2])
+    #                         b5.click(upscale2x, inputs=[out_image2], outputs=[out_image2, gen_res2])
+    #                         b1.click(generate_img2img, inputs=[
+    #                             gr.Image(tool="editor", type="pil", label="Initial image"),
+    #                             gr.Text(label="Your Prompt"),
+    #                             gr.Text(label="Your Negative Prompt"),
+    #                             gr.Slider(0, 1, value=0.75, label="Generated image strength"),
+    #                             gr.Slider(1, 200, value=50, label="Sampling Steps"),
+    #                             gr.Slider(1, 100, step=1, label="Number of images"),
+    #                             gr.Slider(1, 100, step=1, label="Batch size"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Width"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Height"),
+    #                             gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
+    #                             gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
+    #                             gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
+    #                             gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
+    #                             gr.Text(label="Seed"),
+    #                             gr.Text(value=args.outputs_path, label="Outputs path"),
+    #                             gr.Radio(["png", "jpg"], value='png', label="Image format"),
+    #                             gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
+    #                             gr.Checkbox(label="Full precision mode (practically does nothing)"),
+    #                             gr.Radio(
+    #                                 ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
+    #                                 value="ddim", label="Sampler"),
+    #                             gr.Checkbox(value=False,
+    #                                         label="Lightning Attention (only on linux + xformers installed)"),
+    #                         ], outputs=[out_image2, gen_res2])
+    #                         b2.click(get_logs, inputs=[], outputs=outs2)
+    #                         b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
+    #     with gr.Tab("img2img inpaint"):
+    #         with gr.Column():
+    #             gr.Markdown("# Generate images from images (with a mask) (neonsecret's adjustments)")
+    #             gr.Markdown("### Press 'generation status' button to get the model output logs")
+    #             with gr.Row():
+    #                 with gr.Column():
+    #                     out_image3 = gr.Image(label="Output Image")
+    #                     gen_res3 = gr.Text(label="Generation results")
+    #                     outs2 = [gr.Text(label="Logs")]
+    #                     outs3 = [gr.Text(label="nvidia-smi")]
+    #                     b1 = gr.Button("Generate!")
+    #                     b4 = gr.Button("Face correction")
+    #                     b5 = gr.Button("Upscale 2x")
+    #                     b2 = gr.Button("generation status")
+    #                     b3 = gr.Button("nvidia-smi")
+    #                 with gr.Column():
+    #                     with gr.Box():
+    #                         b4.click(face_restore, inputs=[out_image3], outputs=[out_image3, gen_res3])
+    #                         b5.click(upscale2x, inputs=[out_image3], outputs=[out_image3, gen_res3])
+    #                         b1.click(generate_img2img, inputs=[
+    #                             gr.Image(tool="sketch", type="pil", label="Initial image with a mask"),
+    #                             gr.Text(label="Your Prompt"),
+    #                             gr.Text(label="Your Negative Prompt"),
+    #                             gr.Slider(0, 1, value=0.75, label="Generated image strength"),
+    #                             gr.Slider(1, 200, value=50, label="Sampling Steps"),
+    #                             gr.Slider(1, 100, step=1, label="Number of images"),
+    #                             gr.Slider(1, 100, step=1, label="Batch size"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Width"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Height"),
+    #                             gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
+    #                             gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
+    #                             gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
+    #                             gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
+    #                             gr.Text(label="Seed"),
+    #                             gr.Text(value=args.outputs_path, label="Outputs path"),
+    #                             gr.Radio(["png", "jpg"], value='png', label="Image format"),
+    #                             gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
+    #                             gr.Checkbox(label="Full precision mode (practically does nothing)"),
+    #                             gr.Radio(
+    #                                 ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
+    #                                 value="ddim", label="Sampler"),
+    #                             gr.Checkbox(value=False,
+    #                                         label="Lightning Attention (only on linux + xformers installed)"),
+    #                         ], outputs=[out_image3, gen_res3])
+    #                         b2.click(get_logs, inputs=[], outputs=outs2)
+    #                         b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
+    #     with gr.Tab("img2img interpolate"):
+    #         with gr.Column():
+    #             gr.Markdown("# Generate a video interpolation from images")
+    #             gr.Markdown("### Press 'generation status' button to get the model output logs")
+    #             with gr.Row():
+    #                 with gr.Column():
+    #                     out_video = gr.Video()
+    #                     gen_res4 = gr.Text(label="Generation results")
+    #                     outs2 = [gr.Text(label="Logs")]
+    #                     outs3 = [gr.Text(label="nvidia-smi")]
+    #                     b1 = gr.Button("Generate!")
+    #                     b2 = gr.Button("generation status")
+    #                     b3 = gr.Button("nvidia-smi")
+    #                 with gr.Column():
+    #                     with gr.Box():
+    #                         b1.click(generate_img2img_interp, inputs=[
+    #                             gr.Image(tool="editor", type="pil", label="Initial image"),
+    #                             gr.Text(label="Your Prompt"),
+    #                             gr.Slider(0, 1, value=0.75, label="Generated image strength"),
+    #                             gr.Slider(1, 200, value=50, label="Sampling Steps"),
+    #                             gr.Slider(1, 100, step=1, label="Number of images"),
+    #                             gr.Slider(1, 100, step=1, label="Batch size"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Width"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Height"),
+    #                             gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
+    #                             gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
+    #                             gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
+    #                             gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
+    #                             gr.Text(label="Seed"),
+    #                             gr.Text(value=args.outputs_path, label="Outputs path"),
+    #                             gr.Radio(["png", "jpg"], value='png', label="Image format"),
+    #                             gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
+    #                             gr.Checkbox(label="Full precision mode (practically does nothing)"),
+    #                             gr.Radio(
+    #                                 ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
+    #                                 value="ddim", label="Sampler"),
+    #                             gr.Checkbox(value=False,
+    #                                         label="Lightning Attention (only on linux + xformers installed)"),
+    #                             gr.Slider(1, 120, value=60, step=1, label="How smooth/slow the video will be"),
+    #                         ], outputs=[out_video, gen_res4])
+    #                         b2.click(get_logs, inputs=[], outputs=outs2)
+    #                         b3.click(get_nvidia_smi, inputs=[], outputs=outs3)
+    #     with gr.Tab("txt2img 2x-3x upscale"):
+    #         with gr.Column():
+    #             gr.Markdown("# Generate images from text using SD upscaling")
+    #             gr.Markdown("### Generate images in 2(3) steps - Wx -> 2Wx2H (-> 3Wx3H)")
+    #             gr.Markdown("### Press 'generation status' button to get the model output logs")
+    #             with gr.Row():
+    #                 with gr.Column():
+    #                     out_image = gr.Image(label="Output Image")
+    #                     gen_res = gr.Text(label="Generation results")
+    #                     outs2 = [gr.Text(label="Logs")]
+    #                     outs3 = gr.Text(label="nvidia-smi")
+    #                     b1 = gr.Button("Generate!")
+    #                     b4 = gr.Button("Face correction")
+    #                     b5 = gr.Button("Upscale 2x")
+    #                     b2 = gr.Button("generation status")
+    #                     b3 = gr.Button("nvidia-smi")
+    #                 with gr.Column():
+    #                     with gr.Box():
+    #                         b4.click(face_restore, inputs=[out_image], outputs=[out_image, gen_res])
+    #                         b5.click(upscale2x, inputs=[out_image], outputs=[out_image, gen_res])
+    #                         b1.click(generate_double_triple, inputs=[
+    #                             gr.Text(label="Your Prompt"),
+    #                             gr.Slider(1, 200, value=50, label="Sampling Steps"),
+    #                             gr.Slider(0, 1, value=0.35, label="Upscaled image changes strength"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Width"),
+    #                             gr.Slider(64, 4096, value=512, step=64, label="Height"),
+    #                             gr.Slider(-25, 25, value=7.5, step=0.1, label="Guidance scale"),
+    #                             gr.Slider(0, 1, step=0.01, label="DDIM sampling ETA"),
+    #                             gr.Slider(1, 2, value=1, step=1, label="U-Net batch size"),
+    #                             gr.Radio(["cuda", "cpu"], value="cuda", label="Device"),
+    #                             gr.Text(label="Seed"),
+    #                             gr.Text(value=args.outputs_path, label="Outputs path"),
+    #                             gr.Radio(["png", "jpg"], value='png', label="Image format"),
+    #                             gr.Checkbox(value=True, label="Turbo mode (better leave this on)"),
+    #                             gr.Checkbox(label="Full precision mode (practically does nothing)"),
+    #                             gr.Radio(
+    #                                 ["ddim", "plms", "k_dpm_2_a", "k_dpm_2", "k_euler_a", "k_euler", "k_heun", "k_lms"],
+    #                                 value="plms", label="Sampler"),
+    #                             gr.Checkbox(value=False,
+    #                                         label="Lightning Attention (only on linux + xformers installed)"),
+    #                             gr.Slider(2, 3, value=2, step=1,
+    #                                       label="Neural scaling factor, 3 will take much longer"),
+    #                         ], outputs=[out_image, gen_res])
+    #                         b2.click(get_logs, inputs=[], outputs=outs2)
+    #                         b3.click(get_nvidia_smi, inputs=[], outputs=[outs3])
+    # demo.launch(share=True)

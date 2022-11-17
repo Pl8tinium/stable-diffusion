@@ -9,5 +9,6 @@ services:
       - ../sd-output:/output
       - sd-cache:/root/.cache
     runtime: nvidia
+    entrypoint: tail /dev/null --follow
 volumes:
   sd-cache:
