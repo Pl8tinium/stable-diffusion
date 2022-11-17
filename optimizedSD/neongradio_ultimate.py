@@ -1092,8 +1092,9 @@ def txt2img_endpoint():
 @app.route("/img2img", methods=["POST"])
 def img2img_endpoint():
     data = request.get_json(force=True)
+    image_path = extract_json(data, 'input_dir', '/input/') + extract_json(data, 'image_path', 'img.png')
     generate_img2img(
-        image=extract_json(data, 'input_dir', '/input/') + extract_json(data, 'image_path', 'img.png'),
+        image=Image.open(image_path),
         prompt=extract_json(data, 'prompt', 'apple'),
         negative_prompt=extract_json(data, 'negative_prompt', ''),
         strength=extract_json(data, 'strength', 0.5),
