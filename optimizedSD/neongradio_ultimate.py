@@ -53,6 +53,7 @@ from basicsr.utils.realesrgan_utils import RealESRGANer
 from basicsr.utils.registry import ARCH_REGISTRY
 from torchvision.transforms.functional import normalize
 from flask import Flask
+from flask import request
 import subprocess
 
 transformers_logging.set_verbosity_error()
@@ -1033,27 +1034,40 @@ class TqdmLoggingHandler(logging.Handler):
         except Exception:
             self.handleError(record)
 
-@app.route("/")
-def hello_world():
+
+# endpoint for txt2img
+# sample input 
+# {
+#     "prompt": "apple",
+#     "negative_prompt": "",
+#     "width": 512,
+#     "height": 512,
+#     "guidenance_scale": 7.5,
+#     "seed": 0
+# } 
+
+@app.route("/txt2img", methods=["POST"])
+def txt2img_endpoint():
+    data = request.get_json(force=True)
     generate_txt2img(
-        prompt="apple",
-        negative_prompt="",
-        ddim_steps=50,
-        n_iter=1,
-        batch_size=1,
-        Width=512,
-        Height=512,
-        scale=7.5,
-        ddim_eta=0.1,
-        unet_bs=1,
-        device="cuda",
-        seed=0,
-        outdir="/output/",
-        img_format="png",
-        turbo=True,
-        full_precision=False,
-        sampler="plms",
-        speed_mp=False
+        prompt=data['prompt'] if 'prompt' in data else 'apple',
+        negative_prompt=data['negative_prompt'] if 'negative_prompt' in data else '',
+        ddim_steps=data['sampling_steps'] if 'sampling_steps' in data else 50,
+        n_iter=data['number_images'] if 'number_images' in data else 1,
+        batch_size=data['batch_size'] if 'batch_size' in data else 1,
+        Width=data['width'] if 'width' in data else 512,
+        Height=data['height'] if 'height' in data else 512,
+        scale=data['guidenance_scale'] if 'guidenance_scale' in data else 7.5,
+        ddim_eta=data['ddim_sampling_eta'] if 'ddim_sampling_eta' in data else 0.1,
+        unet_bs=data['unet_batch_size'] if 'unet_batch_size' in data else 1,
+        device=data['device'] if 'device' in data else "cuda",
+        seed=data['seed'] if 'seed' in data else 0,
+        outdir=data['outdir'] if 'outdir' in data else "/output/",
+        img_format=data['img_format'] if 'img_format' in data else "png",
+        turbo=data['turbo'] if 'turbo' in data else True,
+        full_precision=data['full_precision'] if 'full_precision' in data else False,
+        sampler=data['sampler'] if 'sampler' in data else "plms",
+        speed_mp=data['speed_mp'] if 'speed_mp' in data else False
     )
     return "Done"
 
@@ -1133,9 +1147,6 @@ if __name__ == '__main__':
     #start api
     app.run()
 
-
-
-    
     # demo = gr.Blocks()
 
     # with demo:
@@ -1156,27 +1167,6 @@ if __name__ == '__main__':
     #                     b3 = gr.Button("nvidia-smi")
     #                 with gr.Column():
     #                     with gr.Box():
-
-    # generate_txt2img(
-    #     prompt="apple",
-    #     negative_prompt="",
-    #     ddim_steps=50,
-    #     n_iter=1,
-    #     batch_size=1,
-    #     Width=512,
-    #     Height=512,
-    #     scale=7.5,
-    #     ddim_eta=0.1,
-    #     unet_bs=1,
-    #     device="cuda",
-    #     seed=0,
-    #     outdir="/output/",
-    #     img_format="png",
-    #     turbo=True,
-    #     full_precision=False,
-    #     sampler="plms",
-    #     speed_mp=False
-    # )
     #                         b4.click(face_restore, inputs=[out_image], outputs=[out_image, gen_res])
     #                         b5.click(upscale2x, inputs=[out_image], outputs=[out_image, gen_res])
     #                         b1.click(generate_txt2img, inputs=[

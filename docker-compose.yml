@@ -4,11 +4,11 @@ services:
     build: .
     ports:
       - "7860:7860"
+      - "5000:5000"
     volumes:
       - ../sd-data:/data
       - ../sd-output:/output
       - sd-cache:/root/.cache
     runtime: nvidia
-    entrypoint: tail /dev/null --follow
 volumes:
   sd-cache:

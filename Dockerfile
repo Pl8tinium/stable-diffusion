@@ -18,7 +18,7 @@ RUN eval "$($HOME/miniconda/bin/conda shell.bash hook)" \
  && cd /root/stable-diffusion \
  && conda env create -f environment.yaml \
  && conda activate ldm \
- && pip install --upgrade gdown gradio opencv-python
+ && pip install --upgrade gdown gradio opencv-python flask
 
 VOLUME /root/.cache
 VOLUME /data
