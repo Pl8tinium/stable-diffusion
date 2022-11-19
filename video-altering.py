@@ -58,10 +58,7 @@ def natural_sort(l):
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
     return sorted(l, key=alphanum_key)
 
-def merge_frames(video, frames_input_path, video_output_path, desired_framerate):
-    current_framerate, _ = get_framerate_info(video)
-    real_target_framerate, _ = calc_real_framerate_info(current_framerate, desired_framerate)
-    delay_time=get_delay_time(real_target_framerate)
+def merge_frames(video, frames_input_path, video_output_path):
     fourcc = cv2.VideoWriter_fourcc(*'MP4V')
     initialized = False
 
@@ -73,11 +70,10 @@ def merge_frames(video, frames_input_path, video_output_path, desired_framerate)
         if not initialized:
             initialized = True
             height, width, layers = single_frame.shape
-            video = cv2.VideoWriter(video_output_path, fourcc, real_target_framerate, (width,height))
+            video = cv2.VideoWriter(video_output_path, fourcc, len(frames), (width,height))
 
         for frame in frames:
             video.write(cv2.imread(os.path.join(current_second_dir, frame)))
-            cv2.waitKey(delay_time)
 
     cv2.destroyAllWindows()
     video.release()
@@ -96,5 +92,5 @@ desired_framerate = 15
 Path(frames_output_path).mkdir(parents=True, exist_ok=True)
 Path(frames_input_path).mkdir(parents=True, exist_ok=True)
 video = cv2.VideoCapture(video_input_path)
-# split_video(video, frames_output_path, desired_framerate)
-merge_frames(video, frames_input_path, video_output_path, desired_framerate)
+split_video(video, frames_output_path, desired_framerate)
+merge_frames(video, frames_input_path, video_output_path)
