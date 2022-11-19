@@ -3,6 +3,8 @@ from pathlib import Path
 import math
 import os
 import re
+import requests
+import sys
 
 def calc_real_framerate_info(current_framerate, desired_framerate, framerate_up_rounding=True):
     rounding_method = math.ceil if framerate_up_rounding else math.floor
@@ -22,7 +24,7 @@ def split_video(video, frames_output_path, desired_framerate, framerate_up_round
     current_framerate, total_frames = get_framerate_info(video)
     total_len_in_sec = (total_frames / current_framerate) % 60
     real_target_framerate, frame_skip = calc_real_framerate_info(current_framerate, desired_framerate)
-    print(f'current framerate{current_framerate} | desired framerate {desired_framerate} | actual framerate {real_target_framerate}')
+    print(f'current framerate {current_framerate} | desired framerate {desired_framerate} | actual framerate {real_target_framerate}')
     delay_time=get_delay_time(real_target_framerate)
     secondsCounter = 0
     current_frame_nr = 0
@@ -78,19 +80,57 @@ def merge_frames(video, frames_input_path, video_output_path):
     cv2.destroyAllWindows()
     video.release()
 
-project_name = 'testproject'
-dirname = os.path.dirname(__file__)
-frames_output_path = Path(dirname).parent.absolute().joinpath('sd-input/' + project_name)
-frames_input_path = Path(dirname).parent.absolute().joinpath('sd-output/' + project_name)
-video_input_path = '/home/user/Code/vid2vid/samplevid.mp4'
-video_output_path = '/home/user/Code/vid2vid/newsamplevid.mp4'
+def sd_img2img_api_call(project_name, frames_sd_input, frames_sd_output, sd_config):
+    local_sd_url = 'http://localhost:5000/img2img'
+
+    seconds_dirs = natural_sort(os.listdir(frames_sd_input))
+    seconds_count = len(seconds_dirs)
+    for idxSecond, second in enumerate(seconds_dirs):
+        current_second_dir = frames_sd_input.joinpath(f'{second}')
+        Path(frames_sd_output.joinpath(second)).mkdir(parents=True, exist_ok=True)
+        frames = natural_sort([img for img in os.listdir(current_second_dir) if img.endswith(".png")])
+        frames_count = len(frames)
+
+        for idxFrame, frame in enumerate(frames):
+            dto = sd_config
+            dto['image_path'] = frame
+            dto['input_dir'] = f'/input/{project_name}/{second}/'
+            dto['outdir'] = f'/output/{project_name}/{second}/'
+
+            print(f'requesting image conversion | second: {idxSecond}/{seconds_count} | frame: {idxFrame}/{frames_count}')
+            resp = requests.post(local_sd_url, json = dto)
+            if not resp.text == "Done":
+                print("error, skipping frame")
+    print('Done with frame conversion!')
+
+project_name = sys.argv[1] if len(sys.argv) == 5 else 'testproject'
+video_input_path =  sys.argv[2] if len(sys.argv) == 5 else '/home/user/Code/vid2vid/samplevid.mp4'
+video_output_path = sys.argv[3] if len(sys.argv) == 5 else '/home/user/Code/vid2vid/newsamplevid.mp4'
+
 # can only be specified lower than the current framerate is
 # conversion is also pretty bad/ simple and when not doing 60 to 30 or
 # something the result will not be the desired framerate because of rounding issues
-# with my simple conversion, change the framerate_up_rounding param to use down round 
-desired_framerate = 15
+# with my simple conversion, change the framerate_up_rounding param to use down round
+# framerate 1 doesnt work either 
+desired_framerate = 5
+
+sd_config = {
+    "prompt": sys.argv[4] if len(sys.argv) == 5 else "yellow cyberpunk apple",
+    "negative_prompt": "",
+    "strength": 0.5,
+    "width": 256,
+    "height": 256,
+    "guidenance_scale": 7.5,
+    "seed": 0
+}
+
+dirname = os.path.dirname(__file__)
+frames_output_path = Path(dirname).parent.absolute().joinpath('sd-input/' + project_name)
+frames_input_path = Path(dirname).parent.absolute().joinpath('sd-output/' + project_name)
 Path(frames_output_path).mkdir(parents=True, exist_ok=True)
 Path(frames_input_path).mkdir(parents=True, exist_ok=True)
 video = cv2.VideoCapture(video_input_path)
+
 split_video(video, frames_output_path, desired_framerate)
+sd_img2img_api_call(project_name, frames_sd_input=frames_output_path, frames_sd_output=frames_input_path, sd_config=sd_config)
 merge_frames(video, frames_input_path, video_output_path)

@@ -139,6 +139,7 @@ async def get_nvidia_smi():
 
 
 def generate_img2img(
+        image_name,
         image,
         prompt,
         negative_prompt,
@@ -186,7 +187,7 @@ def generate_img2img(
     tic = time.time()
     os.makedirs(outdir, exist_ok=True)
     outpath = outdir
-    sample_path = os.path.join(outpath, "_".join(re.split(":| ", prompt)))[:150]
+    sample_path = outdir #os.path.join(outpath, "_".join(re.split(":| ", prompt)))[:150]
     os.makedirs(sample_path, exist_ok=True)
     base_count = len(os.listdir(sample_path))
 
@@ -299,7 +300,7 @@ def generate_img2img(
                         all_samples.append(x_sample.to("cpu"))
                         x_sample = 255.0 * rearrange(x_sample[0].cpu().numpy(), "c h w -> h w c")
                         Image.fromarray(x_sample.astype(np.uint8)).save(
-                            os.path.join(sample_path, "seed_" + str(seed) + "_" + f"{base_count:05}.{img_format}")
+                            os.path.join(sample_path, image_name)
                         )
                         seeds += str(seed) + ","
                         seed += 1
@@ -1068,7 +1069,7 @@ def txt2img_endpoint():
         unet_bs=extract_json(data, 'unet_batch_size', 1),
         device=extract_json(data, 'device', 'cuda'),
         seed=extract_json(data, 'seed', 0),
-        outdir=extract_json(data, 'output_dir', '/output/'),
+        outdir=extract_json(data, 'outdir', '/output/'),
         img_format=extract_json(data, 'img_format', 'png'),
         turbo=extract_json(data, 'turbo', True),
         full_precision=extract_json(data, 'full_precision', False),
@@ -1094,6 +1095,7 @@ def img2img_endpoint():
     data = request.get_json(force=True)
     image_path = extract_json(data, 'input_dir', '/input/') + extract_json(data, 'image_path', 'img.png')
     generate_img2img(
+        image_name=extract_json(data, 'image_path', 'img.png'),
         image=Image.open(image_path),
         prompt=extract_json(data, 'prompt', 'apple'),
         negative_prompt=extract_json(data, 'negative_prompt', ''),
