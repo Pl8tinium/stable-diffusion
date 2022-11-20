@@ -20,13 +20,13 @@ This is necessary to do beforehand, because as docker would create them as root.
 - get the pretrained stable diffusion weights from huggingfaces like described in the (official stable diffusion repo)[https://github.com/CompVis/stable-diffusion#:~:text=The%20weights%20are%20available] and place (or symlink) them in the '../sd-data' directory. The name of the model needs to be 'model.ckpt'
 - launch the docker compose yml with 'docker compose up --build'. After it has compiled for the first time you only need to call 'docker compose up'
 - launch the video altering script with the following params
-'python video_altering.py PROJECT_NAME ABSOLUTE_VIDEO_INPUT_PATH ABSOLUTE_VIDEO_OUTPUT_PATH "PROMPT"
+'python video_altering.py PROJECT_NAME ABSOLUTE_VIDEO_INPUT_PATH ABSOLUTE_VIDEO_OUTPUT_PATH "PROMPT"'
 PROJECT_NAME = arbitrary name for folder structures e.g.: 'testproject'
 ABSOLUTE_VIDEO_INPUT_PATH, ABSOLUTE_VIDEO_OUTPUT_PATH = absolute path to video in/output e.g.: '/home/user/Code/vid2vid/samplevid.mp4'
 PROMPT = the prompt to alter the frames with e.g.: '"oil painting style"'
 
 e.g.:
-''
+'python video_altering.py testproject /home/USER/inputvid.mp4 /home/USER/newinputvid.mp4 "comic style artwork"'
 
 For more settings (like FPS adjustments, image size and so on) check out the parameterization at the end of the video_altering file.
 
